@@ -1,0 +1,1 @@
+<p>Settings have yet to be implemented. Things like password change, category default will be here.</p>

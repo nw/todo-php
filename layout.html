@@ -1,0 +1,541 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<title>Todo List</title>
+		
+		<script type="text/javascript" src="js/mt_121_core.js"></script>
+		<script type="text/javascript" src="js/mt_121_more.js"></script>
+		
+		<script type="text/javascript">
+		
+		(function(){
+			var events;
+			var check = function(e){
+				var target = $(e.target);
+				var parents = target.getParents();
+				events.each(function(item){
+					var element = item.element;
+					if (element != target && !parents.contains(element)) 
+						item.fn.call(element, e);
+				});
+			};
+
+			Element.Events.outerClick = {
+				onAdd: function(fn){
+					if(!events) {
+						document.addEvent('click', check);
+						events = [];
+					}
+					events.push({element: this, fn: fn});
+				},
+
+				onRemove: function(fn){
+					events = events.filter(function(item){
+						return item.element != this || item.fn != fn;
+					}, this);
+					if (!events.length) {
+						document.removeEvent('click', check);
+						events = null;
+					}
+				}
+			};
+		})();
+		
+		var ToDos = new Class({
+			
+			initialize : function(){
+				
+				this.list = $$('#list .todo');
+				
+				this.list.each(function(todo){
+					var spans = todo.getElements('span, select');
+					todo.store('spans' , spans);
+					todo.store('outFunc' , this.outClick.bind(this,todo));
+					todo.store('note' , todo.getElement('p'));
+					
+					spans.setStyle('visibility','hidden');
+					
+					spans.each(function(span){
+						span.addEvent('click' , this.spanClicked.bind(this,span))
+					},this);
+					
+					
+					todo.addEvents({
+						'mouseover' : this.over.bind(this,todo),
+						'mouseout' : this.out.bind(this,todo),
+						'click' : this.clicked.bind(this,todo)
+ 					});
+
+					var sortables = new Sortables(null, {
+						'revert' : { duration : 700 },
+						'constrain' : false,
+						'clone' : true,
+						'opacity' : 1,
+						'handle' : '.top',
+						'onStart' : function(item,clone){
+					//		console.debug(item,clone);
+							clone.setStyles({'z-index' : 1000, 'opacity' : .8});
+						}
+					});
+					sortables.addItems(todo);
+					sortables.attach();
+					
+					new Sortables(null,{
+						'constrain' : false,
+						'clone' : true,
+						'handle' : 'h3',
+						'onStart' : function(item,clone){
+							clone.setStyles({'z-index' : 1000, 'opacity' : .8});
+						}
+					}).addItems($$('#sidebar .section')).attach();
+					
+					
+					new Sortables(null,{
+						'constrain' : true,
+						'clone' : true,
+						'onStart' : function(item,clone){
+							clone.setStyles({'z-index' : 1000, 'opacity' : .8});
+						}
+					}).addItems($$('ul.categories lidDD')).attach();
+					
+					
+				},this);
+				
+				
+			},
+			
+			spanClicked : function(el){
+				return;
+				var coords = el.getParent().getCoordinates();
+				var c = el.getCoordinates();
+				var menu = new Element('div',{
+					'styles' : {
+						'position' : 'absolute',
+						'width' : c.width,
+						'height' : c.height*3 + 20,
+						'top' : -20,
+						'left' : coords.width - c.width,
+						'border' : '1px solid #999',
+						'background' : '#EEE',
+						'z-index' : 5
+					}
+				});
+				
+				if(el.hasClass('category')){
+						menu.setStyles({
+							'width' : c.width / 2,
+							'left' : coords.width - (c.width / 2)
+						}).inject(el.getParent());
+				}
+			},
+			
+			clicked : function(el){
+				if(el.retrieve('active')) return false;
+				el.store('active',true);
+				el.addEvent( 'outerClick' , el.retrieve('outFunc'));
+				
+				var note = el.retrieve('note');
+				var txt = new Element('textarea', {
+					'html' : note.get('html'),
+					'class' : 'active',
+					'styles' : {
+						'font-family' : 'verdana',
+						'display': 'block',
+						'width': note.getStyle('width'),
+						'background-color': '#DDD',
+						'border': 'none',
+						'clear': 'both',
+						'margin': '0 0 3px 0',
+						'padding': '8px 5px',
+						'border': '1px dotted #999',
+						'font-size': '14px',
+						'vertical-align' : 'baseline',
+						'text-align' : 'left',
+						'color': '#333' ,
+						'height' : note.getStyle('height')
+					}
+				}).inject(note.getParent());
+				
+				
+				el.store('note',txt.replaces(note));
+				
+				txt.focus();
+				
+				
+				var coords = txt.getParent().getCoordinates();
+				
+				var submit = new Element('span',{
+					'html' : 'submit',
+					'styles' : {
+						'border' : '1px dotted #999',
+						'background' : '#F6F6F6',
+						'border-left' : 'none',
+						'width' : 40,
+						'text-align' : 'center',
+						'padding' : 2,
+						'position' : 'absolute',
+						'top' : 25,
+						'left' : coords.width
+					}	,
+						'events' : {
+							'mouseover' : function(){ this.setStyles({'background-color' : '#999', 'color' : '#EEE'}); },
+							'mouseout' : function(){ this.setStyles({'background-color' : '#F6F6F6', 'color' : '#999'}); }
+						}
+				}).inject(txt.getParent());
+				
+				var cancel = new Element('span',{
+					'html' : 'cancel',
+					'styles' : {
+						'border' : '1px dotted #999',
+						'background' : '#F6F6F6',
+						'border-left' : 'none',
+						'width' : 40,
+						'text-align' : 'center',
+						'padding' : 2,
+						'position' : 'absolute',
+						'top' : 48,
+						'left' : coords.width
+					},
+					'events' : {
+						'mouseover' : function(){ this.setStyles({'background-color' : '#999', 'color' : '#EEE'}); },
+						'mouseout' : function(){ this.setStyles({'background-color' : '#F6F6F6', 'color' : '#999'}); }
+					}
+				}).inject(txt.getParent());
+				
+				el.store('submit',submit);
+				el.store('cancel',cancel);
+				
+				return false;
+			},
+			
+			outClick : function(el){
+				el.removeEvent('outerClick', el.retrieve('outFunc'));
+				
+				var note = el.retrieve('note');
+				var p = new Element('p',{
+					'html' : note.get('value')
+				}).inject(note.getParent());
+				
+				el.store('note',p.replaces(note));
+				
+				el.retrieve('submit').destroy();
+				el.retrieve('cancel').destroy();
+				
+				el.store('active',false);
+				this.out(el);
+			},
+			
+			over : function(el){
+				el.retrieve('spans').setStyle('visibility','visible');
+			},
+			
+			out : function(el){
+				if(el.retrieve('active')) return false;
+				el.retrieve('spans').setStyle('visibility','hidden');
+			}
+			
+		});
+		
+		window.addEvent('domready',function(){
+		
+			$('settings_link').store('shown',false);
+			
+			var fx = new Fx.Tween('settings',{duration : 1200});
+			
+			$('settings_link').addEvent('click',function(){
+				var state = this.retrieve('shown');
+				if(!state) fx.start('height',150);	
+				else  fx.start('height',0);
+				this.store('shown',!state);
+			});
+			
+			new ToDos();
+			
+		});
+		
+		</script>
+		
+		<style type="text/css">
+		
+		
+		body {
+			margin: 0;
+			padding: 0;
+			text-align: center;
+			background-color: #666;
+			font-family: Verdana;
+			font-size: 14px;
+			color: #333;
+		}
+		
+		#titlebar {
+			text-align: left;
+			background-color: #666;
+			width: 100%;
+			color: #DDD;
+			height: 35px;
+			overflow: hidden;
+			border-bottom:  1px solid #000;
+		}
+		
+		#titlebar h1 {
+			margin: 0;
+			padding: 4px 15px;
+			width: 35%;
+			float: left;
+			font-weight: normal;
+			font-size: 20px;
+		}
+		
+		#nav {
+			float: right;
+			margin-right: 20px;
+			width: 35%;
+			margin-top: 10px;
+			text-align: right;
+		}
+		
+		#nav a, #nav a:visited {
+			color: #DDD;
+		}
+		
+		#nav a:hover {
+			color: #FFF;
+		}
+		
+		#settings {
+			height: 0px;
+			background-color :  #CCC;
+			border-left: 1px solid #000;
+			border-right: 1px solid #000;
+		}
+		
+		#container {
+			margin: 0 auto;
+			width: 1000px;
+			background-color: #EDEDED;
+		}
+		
+		#sidebar {
+			float: right;
+			padding-top: 10px;
+			margin-right: 30px;
+			width: 230px;
+			cursor: pointer;
+		}
+		
+		#sidebar h3 {
+			font-weight: normal;
+			font-size: 18px;
+			border-bottom: 1px solid #CCC;
+		}
+		
+		#sidebar ul {
+			list-style: none;
+		}
+		
+		#sidebar ul li {
+			font-size: 12px;
+			padding: 2px 0px;
+			border-bottom: 1px dotted #999;
+		}
+		
+		#content {
+			text-align: left;
+			padding: 0 0 0 0;
+			margin: 0 0 0 0;
+			padding-top: 25px;
+			padding-bottom: 25px;
+			border: 1px solid #000;
+		}
+		
+		#list {
+			float: left;
+			width: 700px;
+			border-right: 1px dotted #999;
+		}
+		
+		#list h4 {
+			width: 500px;
+			margin: 5px auto 20px auto;
+			font-weight: normal;
+			font-size: 18px;
+			border-bottom: 1px solid #999;
+		}
+		
+		.todo {
+			position: relative;
+			width: 500px;
+			margin: 0px auto 20px auto;
+			font-size: 14px;
+			z-index: 1;
+		}
+		
+		.todo .top {
+			clear: both;
+			height: 20px;
+			background-color :  #DDD;
+			border:  1px dotted #999;
+			border-bottom :  none;
+			z-index: 1;
+		}
+		
+		.todo div.status {
+			float :  left;
+			margin: 5px;
+			width: 20px;
+			height: 20px;
+			border: 1px solid #CCC;
+		}
+		
+		.todo p, textarea {
+			display: block;
+/*			width: 100%; */
+			background-color: #EEE;
+			border: none;
+			clear: both;
+			margin: 0 0 3px 0;
+			padding: 8px 5px;
+			border: 1px dotted #999;
+			font-size: 14px;
+			color: #333;
+		}
+		
+		.todo p:hover, textarea:hover {
+			background-color: #D1DFEF;
+/*			text-decoration: line-through; */
+		}
+		
+		.todo textarea.active {
+			background-color : #F6F6F6 !important;
+		}
+		
+		.todo span, .todo select {
+			float: right;
+			text-align: right;
+			font-size:  11px;
+			font-style: normal;
+			margin-right: 6px;
+			width: 200px;
+			color: #999;
+			cursor: pointer;
+			z-index: 5;
+		}
+		
+		.todo span.due, .todo span.started {
+			float: left;
+			text-align: left;
+		}
+		
+		.todo .top span {
+			padding-top: 3px;
+			padding-left: 6px;
+			color: #EEE;
+		}
+		
+		.todo .spacer {
+			width:  100%;
+			height: 10px;
+			clear: both;
+		}
+		
+		#footer {
+			clear: both;
+		}
+		
+		
+		</style>
+
+		
+	</head>
+	<body>
+		<div id="container">
+		<div id="titlebar">
+			<h1>TODO List</h1>
+			<div id="nav">
+				<a href="#" id="add">Add</a> | 
+				<a href="#" id="settings_link">Settings</a> | 
+				<a href="#">Logout</a>
+			</div>
+		</div>
+		<div id="settings"></div>
+			<div id="content">
+				<div id="list">
+	<!--			<h4>All Todo's</h4>   -->
+				<div class="todo">
+					<span class="started">2 days old</span>
+					<select class="category">
+						<option value="1">General</option>
+						<option value="2">Personal</option>
+						<option value="3" selected>Work</option>
+					</select>
+					<div class="top"></div> 
+					<p>Finish This project</p>
+					<span class="due">ASAP</span>
+					<span class="status">incomplete</span>
+				</div>
+
+				<div class="todo">
+					<span class="started">10 days old</span>
+					<span class="category">Personal</span>
+					<div class="top"></div> 
+					<p>Pay Rent</p>
+					<span class="due">9 days left</span>
+					<span class="status">incomplete</span>
+				</div>
+				
+				<div class="todo">
+					<span class="started">7 days old</span>
+					<span class="category">Work</span>
+					<div class="top"></div> 
+					<p>Finish Video Player</p>
+					<span class="due">ASAP</span>
+					<span class="status">incomplete</span>
+				</div>
+				
+				<div class="todo">
+					<span class="started">2 days old</span>
+					<span class="category">Personal</span>
+					<div class="top"></div> 
+					<p>Something else fun todo.</p>
+					<span class="due">Finished</span>
+					<span class="status">completed</span>
+				</div>								
+				
+
+			  </div>
+			  <div id="sidebar">
+				<div class="section">
+				<h3>Add</h3>
+				<textarea></textarea>
+				</div>
+				<div class="section">
+				<h3>View</h3>
+					<ul>
+						<li>All</li>
+						<li>Completed</li>
+						<li>Incomplete</li>
+						<li>Over Due</li>
+						<li>Near Due</li>
+					</ul>
+				</div>
+				<div class="section">
+				<h3>Categories <span style="float:right;color:#999;font-size:11px;">(add)</span></h3>
+					<ul class="categories">
+						<li>General</li>
+						<li>Personal</li>
+						<li>Work</li>
+					</ul>
+				</div>
+				<div class="section">
+				<h3>Search</h3>
+				<input type="text" name="search"> <input type="submit" name="submit" value="submit">
+				</div>
+			  </div>
+			 <div id="footer"></div>
+			</div>
+		</div>
+	</body>
+</html>

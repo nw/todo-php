@@ -1,0 +1,6 @@
+
+RewriteEngine on
+RewriteRule ^([^/\.]+)\.(.*)\??$ 		index.php?action=$1&task=$2 			[QSA,NS,L]
+RewriteRule !^(js|css|images).*  		-			     						[C]
+RewriteRule (.*)						index.php?action=bad&task=url 			[L]
+
